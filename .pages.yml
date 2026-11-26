@@ -1,0 +1,48 @@
+
+media:
+  - name: images
+    label: Cafe Images
+    input: images
+    output: /project-caffe/images
+    extensions:
+      - jpg
+      - jpeg
+      - png
+      - webp
+    categories:
+      - image
+
+content:
+  - name: products
+    label: Products
+    type: file
+    path: data/products.json
+    format: json
+    list: true
+    fields:
+      - name: name
+        label: Product Name
+        type: string
+        required: true
+
+      - name: description
+        label: Description
+        type: text
+
+      - name: price
+        label: Price
+        type: number
+
+      - name: image
+        label: Product Image
+        type: image
+        options:
+          media: images
+
+      - name: category
+        label: Category
+        type: string
+
+settings:
+  content:
+    merge: true
