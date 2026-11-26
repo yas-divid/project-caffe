@@ -63,6 +63,8 @@
   .item{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;display:flex;justify-content:space-between;gap:16px}
   .item h3{font-family:Inter,sans-serif;font-size:1rem;font-weight:600;margin-bottom:2px}
   .item p{font-size:.88rem;color:var(--muted)}
+  .item-photo{width:76px;height:76px;object-fit:cover;border-radius:12px;flex:none}
+  .item-main{display:flex;align-items:center;gap:14px;min-width:0;flex:1}
   .price{font-weight:600;color:var(--primary);white-space:nowrap}
   @media(min-width:700px){.items{grid-template-columns:1fr 1fr}}
 
@@ -227,26 +229,98 @@ const CONFIG = {
   const wa = "https://wa.me/" + C.whatsapp + "?text=" + encodeURIComponent("Hola, quería información.");
   $("heroWa").href = wa; $("waFloat").href = wa;
 
-  // Carta con pestañas
-  const cats = Object.keys(C.carta);
+  // Carta: carga los productos guardados desde Pages CMS.
+  // Si el archivo aún no existe o está vacío, usa la carta de ejemplo de CONFIG.
   const tabs = $("tabs"), items = $("items");
-  function show(cat){
-    [...tabs.children].forEach(b => b.classList.toggle("on", b.textContent === cat));
-    items.innerHTML = "";
-    C.carta[cat].forEach(([n, d, p]) => {
-      const el = document.createElement("div"); el.className = "item";
-      const left = document.createElement("div");
-      const h = document.createElement("h3"); h.textContent = n; left.appendChild(h);
-      if (d){ const t = document.createElement("p"); t.textContent = d; left.appendChild(t); }
-      const pr = document.createElement("div"); pr.className = "price"; pr.textContent = p;
-      el.append(left, pr); items.appendChild(el);
+
+  function normalizeProducts(rows){
+    if (!Array.isArray(rows)) return null;
+    const grouped = {};
+    rows.forEach(product => {
+      if (!product || !product.name) return;
+      const category = product.category || "Otros";
+      if (!grouped[category]) grouped[category] = [];
+      const rawPrice = product.price;
+      const price = (rawPrice === "" || rawPrice == null)
+        ? ""
+        : (typeof rawPrice === "number"
+            ? rawPrice.toLocaleString("es-ES", {minimumFractionDigits: 2, maximumFractionDigits: 2}) + " €"
+            : String(rawPrice));
+      grouped[category].push({
+        name: String(product.name),
+        description: product.description ? String(product.description) : "",
+        price,
+        image: product.image ? String(product.image) : ""
+      });
     });
+    return Object.keys(grouped).length ? grouped : null;
   }
-  cats.forEach(c => {
-    const b = document.createElement("button"); b.className = "tab"; b.textContent = c;
-    b.onclick = () => show(c); tabs.appendChild(b);
-  });
-  show(cats[0]);
+
+  function renderMenu(menu){
+    tabs.innerHTML = "";
+    const cats = Object.keys(menu);
+    if (!cats.length) {
+      items.textContent = "Pronto publicaremos nuestra carta.";
+      return;
+    }
+
+    function show(cat){
+      [...tabs.children].forEach(b => b.classList.toggle("on", b.textContent === cat));
+      items.innerHTML = "";
+      (menu[cat] || []).forEach(product => {
+        const el = document.createElement("div");
+        el.className = "item";
+
+        const left = document.createElement("div");
+        left.className = "item-main";
+
+        if (product.image) {
+          const img = document.createElement("img");
+          img.className = "item-photo";
+          img.src = product.image;
+          img.alt = product.name || "Producto";
+          img.loading = "lazy";
+          left.appendChild(img);
+        }
+
+        const details = document.createElement("div");
+        const h = document.createElement("h3");
+        h.textContent = product.name || "";
+        details.appendChild(h);
+
+        if (product.description) {
+          const desc = document.createElement("p");
+          desc.textContent = product.description;
+          details.appendChild(desc);
+        }
+        left.appendChild(details);
+
+        const price = document.createElement("div");
+        price.className = "price";
+        price.textContent = product.price || "";
+        el.append(left, price);
+        items.appendChild(el);
+      });
+    }
+
+    cats.forEach(category => {
+      const button = document.createElement("button");
+      button.className = "tab";
+      button.type = "button";
+      button.textContent = category;
+      button.addEventListener("click", () => show(category));
+      tabs.appendChild(button);
+    });
+    show(cats[0]);
+  }
+
+  fetch("data/products.json")
+    .then(response => {
+      if (!response.ok) throw new Error("No se pudo cargar data/products.json");
+      return response.json();
+    })
+    .then(rows => renderMenu(normalizeProducts(rows) || CONFIG.carta))
+    .catch(() => renderMenu(CONFIG.carta));
 
   // Galería
   const g = $("gallery");
